@@ -22,7 +22,7 @@ def text():
 
 def test():
 
-    return bs.newNode('text', attrs={
+    n = bs.newNode('text', attrs={
             'hAttach': 'center',
             'vAttach': 'center',
             'hAlign': 'center',
@@ -36,6 +36,7 @@ def test():
             'position': (0, 27),
             'color': (1,1,0)})
 
+    return n
 
 def s():
 
@@ -160,6 +161,7 @@ class prr(bsGame.Actor):
   def __init__(self, node):
     if not node.getNodeType() == 'text': return
     self.lifespan = 0
+    self.timer = None
     self.start = 0
     self.end = 0
     self.txt = ''
@@ -172,15 +174,21 @@ class prr(bsGame.Actor):
     if self.start < self.end:
       self.start += 1
       if self.txt:
-          self.node.text = self.txt.replace('{num}', str(self.start))
+          try: self.node.text = self.txt.format(num = str(self.start))
+          except: self.node.text = self.txt.replace('{num}', str(self.start))
       else:
           self.node.text = str(self.start)
     else:
       self.start -= 1
       if self.txt:
-          self.node.text = self.txt.replace('{num}', str(self.start))
+          try: self.node.text = self.txt.format(num = str(self.start))
+          except: self.node.text = self.txt.replace('{num}', str(self.start))
+
       else:
           self.node.text = str(self.start)
+
+  def stop(self):
+    self.timer = None
 
   def play(self, lifespan, start, end, txt):
     self.lifespan = lifespan
@@ -188,6 +196,50 @@ class prr(bsGame.Actor):
     self.end = end
     self.txt = txt
 
+    if txt:
+      try: self.node.text = self.txt.format(num = str(self.start))
+      except: self.node.text = self.txt.replace('{num}', str(self.start))
+
+    else:
+        self.node.text = str(self.start)
+
     abc = abs(self.start-self.end)
-    for i in range(abc):
-      bs.gameTimer((self.lifespan/abc)*(i+1), self.add_int)
+    self.timer = bs.Timer(self.lifespan/abc, self.add_int, repeat=True)
+    bs.gameTimer(self.lifespan, self.stop)
+
+class prr_adv(bsGame.Actor):
+  def __init__(self, node):
+    if not node.getNodeType() == 'text': return
+    self.crono_dict = {}
+    self.txt = ''
+    self.node = node
+    self.node.text = '0'
+
+  def add_int(self, key):
+    if self.crono_dict[key][1] < self.crono_dict[key][2]:
+      self.crono_dict[key] = (self.crono_dict[key][0], self.crono_dict[key][1] + 1, self.crono_dict[key][2])
+    if self.crono_dict[key][1] > self.crono_dict[key][2]:
+      self.crono_dict[key] = (self.crono_dict[key][0], self.crono_dict[key][1] - 1, self.crono_dict[key][2])
+    else:
+      pass
+
+    d = {a: self.crono_dict[a][1] for a in self.crono_dict}
+    if self.txt:
+      self.node.text = self.txt.format(**d)
+    else:
+      pass
+
+  def play(self, txt, keys):
+      self.txt = txt
+      self.crono_dict = keys
+
+      d = {a: self.crono_dict[a][1] for a in self.crono_dict}
+      if self.txt:
+        self.node.text = self.txt.format(**d)
+      else:
+        pass
+
+      for i in self.crono_dict:
+        abc = abs(self.crono_dict[i][1] - self.crono_dict[i][2])
+        for r in range(abc):
+          bs.gameTimer((self.crono_dict[i][0]/abc)*(r+1), bs.Call(self.add_int, i))
